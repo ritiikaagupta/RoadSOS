@@ -22,5 +22,14 @@ Level 2: SMS-Encoded SOS (Compressed data transmission via GSM Signaling Channel
 Level 3: USSD Gateway (Session-based tower communication as a last resort). {Handled by - SHRADDHA DUBEY]
 Level 4: V2V / Mesh Relay (Decentralized Bluetooth/Wi-Fi Direct hopping to passing vehicles).{Handled by - RITIKA GUPTA}
 
+# RoadSoS: Multi-Tiered Emergency Connectivity
+
+This project implements a 4-level fallback system to ensure SOS signals reach emergency services within the **Golden Hour**, regardless of network strength.
+
+### Connectivity Stack:
+1. **Standard Data (4G/5G):** Primary channel for rich data transfer.
+2. **SMS Fallback:** Uses GSM Signaling Channel for low-signal environments.
+3. **USSD Gateway:** Session-based communication for near-zero signal.
+4. **V2V Mesh Relay:** BLE-based hopping for total cellular dead zones.
 **Impact Goal**
 By bridging the "Invisible 40%"—the portion of highway accidents occurring in low-coverage or dead zones—RoadSoS aims to eliminate communication failures and drastically reduce emergency response times.
