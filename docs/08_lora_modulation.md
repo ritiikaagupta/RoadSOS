@@ -61,3 +61,36 @@ with time.
 Output:
 
 - `simulation/python_reference/downchirp_frequency.png`
+- ## 8. LoRa Symbol Modulation
+
+A LoRa symbol is represented using a cyclic shift of
+the reference chirp.
+
+For the initial reference model, Symbol 0 corresponds
+to the unshifted base upchirp.
+
+For a symbol value k, the waveform is shifted according
+to the symbol position within the available symbol space.
+
+For SF7:
+
+2^7 = 128 possible symbol values
+
+Therefore, valid symbols range from 0 to 127.
+
+### Initial Verification
+
+The Python model was tested with:
+
+- Symbol 0
+- Symbol 25
+- Symbol 64
+- Symbol 127
+
+The resulting waveforms were generated and compared
+using the Python reference model.
+
+Output:
+
+- `symbol_0.png`
+- `symbol_comparison.png`
