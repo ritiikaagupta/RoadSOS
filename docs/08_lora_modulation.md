@@ -156,3 +156,35 @@ detected FFT peak were compared.
 
 Successful detection demonstrates the basic
 principle of LoRa symbol recovery.
+## 11. Preamble and Synchronization
+
+A known preamble is transmitted before the data portion
+of the packet.
+
+For the initial SAFE-Link Python reference model, the
+preamble consists of:
+
+- 4 upchirps
+- 2 downchirps
+
+The receiver searches for the known upchirp using
+correlation.
+
+### Synchronization Process
+
+Received Samples
+    ↓
+Correlation with Reference Upchirp
+    ↓
+Correlation Peak
+    ↓
+Preamble Start
+    ↓
+Symbol Boundary
+    ↓
+Data Processing
+
+The initial implementation is intended as a reference
+model for understanding synchronization. More robust
+timing and frequency synchronization will be considered
+during later PHY refinement.
