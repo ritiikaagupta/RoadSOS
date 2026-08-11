@@ -39,3 +39,25 @@ consisting of I and Q components.
 The generated waveform is plotted and its instantaneous
 frequency is analyzed to verify the expected frequency
 sweep.
+## 7. Downchirp
+
+A downchirp is a chirp whose instantaneous frequency
+decreases with time.
+
+The downchirp is important for the receiver because
+it can be used as a reference waveform during
+dechirping.
+
+The Python reference model generates a complex
+baseband downchirp using the same temporary LoRa
+configuration as the upchirp.
+
+### Verification
+
+The instantaneous frequency of the generated
+downchirp was plotted and verified to decrease
+with time.
+
+Output:
+
+- `simulation/python_reference/downchirp_frequency.png`
