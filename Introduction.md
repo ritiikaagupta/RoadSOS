@@ -33,3 +33,30 @@ This project implements a 4-level fallback system to ensure SOS signals reach em
 4. **V2V Mesh Relay:** BLE-based hopping for total cellular dead zones.
 **Impact Goal**
 By bridging the "Invisible 40%"—the portion of highway accidents occurring in low-coverage or dead zones—RoadSoS aims to eliminate communication failures and drastically reduce emergency response times.
+
+
+# SAFE-Link
+
+FPGA-Based LoRa Baseband System for
+Intelligent Vehicle-to-Vehicle Emergency Communication
+
+## Status
+
+Project initialization
+
+## Objective
+
+To develop an FPGA-based LoRa digital baseband
+for low-latency emergency communication.
+
+## Hardware
+
+Spartan-7 FPGA
+External LoRa RF transceiver
+
+## Languages
+
+SystemVerilog
+Python
+Tcl
+Markdown
