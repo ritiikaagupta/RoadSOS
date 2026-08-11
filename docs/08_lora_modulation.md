@@ -94,3 +94,36 @@ Output:
 
 - `symbol_0.png`
 - `symbol_comparison.png`
+## 9. LoRa Dechirping and Symbol Detection
+
+The receiver uses a reference downchirp to dechirp
+the received LoRa symbol.
+
+The dechirped signal is then transformed into the
+frequency domain using an FFT.
+
+The location of the dominant FFT peak corresponds
+to the transmitted symbol.
+
+### Receiver Processing
+
+Received Symbol
+    ↓
+Dechirping
+    ↓
+FFT
+    ↓
+Peak Detection
+    ↓
+Recovered Symbol
+
+### Verification
+
+The Python reference model was tested using multiple
+symbol values.
+
+For the initial tests, the transmitted symbol and
+detected FFT peak were compared.
+
+Successful detection demonstrates the basic
+principle of LoRa symbol recovery.
