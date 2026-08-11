@@ -188,3 +188,35 @@ The initial implementation is intended as a reference
 model for understanding synchronization. More robust
 timing and frequency synchronization will be considered
 during later PHY refinement.
+## 12. SAFE-Link Packet CRC
+
+A CRC-16-CCITT checksum is added to the SAFE-Link
+packet for error detection.
+
+The packet contains:
+
+- Version
+- Message type
+- Node ID
+- Sequence ID
+- Priority
+- Hop count
+- Payload
+- CRC-16
+
+At the receiver, the CRC is recalculated and compared
+with the received CRC.
+
+If the values match, the packet is considered valid.
+
+If they do not match, the packet is rejected.
+
+### CRC Verification
+
+Two tests were performed:
+
+1. Unmodified packet
+2. Packet with an intentionally introduced bit error
+
+The original packet passed CRC verification, while the
+corrupted packet was detected as invalid.
