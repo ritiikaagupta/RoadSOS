@@ -121,6 +121,35 @@ Recovered Symbol
 
 The Python reference model was tested using multiple
 symbol values.
+## 10. Noise Robustness Testing
+
+To evaluate the robustness of the LoRa symbol detector,
+AWGN was introduced between the transmitter and receiver.
+
+Different SNR values were evaluated.
+
+The received signal was processed using:
+
+Received Signal
+    ↓
+Dechirping
+    ↓
+FFT
+    ↓
+Peak Detection
+    ↓
+Symbol Decision
+
+Multiple trials were performed for each SNR value.
+
+The symbol detection accuracy was calculated as:
+
+Accuracy =
+Correctly Detected Symbols / Total Symbols × 100
+
+The resulting accuracy-versus-SNR curve is stored as:
+
+`simulation/python_reference/symbol_detection_accuracy.png`
 
 For the initial tests, the transmitted symbol and
 detected FFT peak were compared.
