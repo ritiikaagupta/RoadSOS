@@ -1,0 +1,50 @@
+module symbol_detector (
+    input  logic        clk,
+    input  logic         rst,
+
+    input  logic signed [15:0] i_in,
+    input  logic signed [15:0] q_in,
+    input  logic               valid_in,
+
+    output logic [2:0]  symbol_out,
+    output logic         symbol_valid
+);
+
+    logic [31:0] magnitude;
+    logic [31:0] max_magnitude;
+    logic [2:0]  max_index;
+    logic [2:0]  sample_count;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            sample_count  <= 3'd0;
+            max_magnitude <= 32'd0;
+            max_index     <= 3'd0;
+            symbol_out    <= 3'd0;
+            symbol_valid  <= 1'b0;
+        end
+        else if (valid_in) begin
+            magnitude = (i_in * i_in) + (q_in * q_in);
+
+            if (magnitude > max_magnitude) begin
+                max_magnitude <= magnitude;
+                max_index     <= sample_count;
+            end
+
+            if (sample_count == 3'd7) begin
+                symbol_out   <= max_index;
+                symbol_valid <= 1'b1;
+                sample_count <= 3'd0;
+                max_magnitude <= 32'd0;
+            end
+            else begin
+                sample_count <= sample_count + 3'd1;
+                symbol_valid <= 1'b0;
+            end
+        end
+        else begin
+            symbol_valid <= 1'b0;
+        end
+    end
+
+endmodule
