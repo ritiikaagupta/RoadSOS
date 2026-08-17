@@ -1,37 +1,51 @@
-module packet_generator (
+`timescale 1ns/1ps
 
-    input  logic [7:0]  header,
+module packet_generator #(
+    parameter logic [7:0] HEADER = 8'hA5
+)(
+    input  logic        clk,
+    input  logic        rst,
+
+    input  logic        packet_start,
     input  logic [7:0]  event_id,
     input  logic [15:0] vehicle_id,
 
-    output logic [47:0] packet
-
+    output logic [47:0] packet,
+    output logic        packet_valid,
+    output logic        packet_done
 );
 
     logic [31:0] payload;
     logic [15:0] crc;
 
-    // First 32 bits of the packet
     assign payload = {
-        header,
+        HEADER,
         event_id,
         vehicle_id
     };
 
-    // Reuse our CRC module
     crc_generator #(
         .DATA_BYTES(4)
-    ) crc_inst (
-
+    ) u_crc_generator (
         .data(payload),
         .crc(crc)
-
     );
 
-    // Complete packet
-    assign packet = {
-        payload,
-        crc
-    };
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            packet       <= 48'd0;
+            packet_valid <= 1'b0;
+            packet_done  <= 1'b0;
+        end else begin
+            packet_valid <= 1'b0;
+            packet_done  <= 1'b0;
+
+            if (packet_start) begin
+                packet       <= {payload, crc};
+                packet_valid <= 1'b1;
+                packet_done  <= 1'b1;
+            end
+        end
+    end
 
 endmodule
