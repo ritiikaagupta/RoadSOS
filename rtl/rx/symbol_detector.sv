@@ -1,13 +1,22 @@
+`timescale 1ns/1ps
+
+// SF=7 means the symbol is 7 bits wide (0..127).
+//
+// This is still a simplified detector: it searches 8 samples and
+// returns the strongest sample index, zero-extended to 7 bits.
+// It therefore exercises the 7-bit interface correctly, while the
+// actual 128-bin LoRa detector can be developed later.
+
 module symbol_detector (
-    input  logic        clk,
-    input  logic         rst,
+    input  logic clk,
+    input  logic rst,
 
     input  logic signed [15:0] i_in,
     input  logic signed [15:0] q_in,
     input  logic               valid_in,
 
-    output logic [2:0]  symbol_out,
-    output logic         symbol_valid
+    output logic [6:0] symbol_out,
+    output logic       symbol_valid
 );
 
     logic [31:0] magnitude;
@@ -20,10 +29,9 @@ module symbol_detector (
             sample_count  <= 3'd0;
             max_magnitude <= 32'd0;
             max_index     <= 3'd0;
-            symbol_out    <= 3'd0;
+            symbol_out    <= 7'd0;
             symbol_valid  <= 1'b0;
-        end
-        else if (valid_in) begin
+        end else if (valid_in) begin
             magnitude = (i_in * i_in) + (q_in * q_in);
 
             if (magnitude > max_magnitude) begin
@@ -32,17 +40,15 @@ module symbol_detector (
             end
 
             if (sample_count == 3'd7) begin
-                symbol_out   <= max_index;
-                symbol_valid <= 1'b1;
-                sample_count <= 3'd0;
+                symbol_out    <= {4'd0, max_index};
+                symbol_valid  <= 1'b1;
+                sample_count  <= 3'd0;
                 max_magnitude <= 32'd0;
-            end
-            else begin
-                sample_count <= sample_count + 3'd1;
+            end else begin
+                sample_count <= sample_count + 1'b1;
                 symbol_valid <= 1'b0;
             end
-        end
-        else begin
+        end else begin
             symbol_valid <= 1'b0;
         end
     end
