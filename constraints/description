@@ -1,0 +1,13 @@
+BTN0  → Emergency Alert
+BTN1  → Reset
+BTN2  → Optional TX trigger
+BTN3  → Optional RX/ACK trigger
+
+LD0   → System ON
+LD1   → Emergency
+LD2   → TX
+LD3   → RX
+LD4   → Packet Valid
+LD5   → CRC PASS
+LD6   → Forwarding
+LD7   → Error
