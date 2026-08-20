@@ -1,0 +1,32 @@
+STEP 1
+Finish transmitter RTL
+        ↓
+STEP 2
+Create XDC pin constraints
+        ↓
+STEP 3
+Synthesis
+        ↓
+STEP 4
+Implementation
+        ↓
+STEP 5
+Generate Bitstream
+        ↓
+STEP 6
+Program FPGA temporarily via JTAG
+        ↓
+STEP 7
+Test transmitter
+        ↓
+STEP 8
+Program the same design into onboard ROM
+        ↓
+STEP 9
+Set J13 → PROM
+        ↓
+Power OFF
+        ↓
+Power ON
+        ↓
+FPGA automatically loads transmitter
