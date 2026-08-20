@@ -26,10 +26,10 @@ module tb_emergency_input;
     logic rst;
 
     logic emergency_trigger;
-    logic [3:0] event_id;
+    logic [7:0] event_id;
 
     logic event_valid;
-    logic [3:0] event_id_out;
+    logic [7:0] event_id_out;
 
 
     // DUT
