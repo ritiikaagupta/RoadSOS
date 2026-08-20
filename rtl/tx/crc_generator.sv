@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 // ============================================================
-// CRC-16/CCITT-FALSE Streaming CRC Generator
+// Streaming CRC Generator
 //
 // Polynomial : 0x1021
 // Initial    : 0xFFFF
@@ -21,7 +21,7 @@
 // One byte is processed per clock cycle.
 // ============================================================
 
-module crc16_ccitt_stream (
+module crc_generator (
 
     input  logic        clk,
     input  logic        rst_n,
