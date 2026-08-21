@@ -1,0 +1,11 @@
+VIVADO SETUP
+1. Create a new RTL project for xc7s50csga324-1.
+2. TX project: add rtl/tx/*.sv and constraints/tx_boolean_uart.xdc. Set tx_top_module as top.
+3. RX project: add rtl/rx/*.sv and constraints/rx_boolean_uart.xdc. Set rx_top_module as top.
+4. Do NOT add legacy/*.xdc.
+5. Connect each Boolean board to a PC with its PROG UART USB port. Real Digital documents that this connector provides programming and UART/COM access.
+6. In Windows Device Manager, identify the two COM ports.
+7. Install pyserial: python -m pip install pyserial
+8. Run: python python/pc_bridge_dashboard.py --tx COM_TX --rx COM_RX
+9. On TX board set SW0..SW7 to an event code. Recommended demo: 0x02 = accident. Press BTN1.
+10. RX LED2 should indicate a valid CRC-passing emergency packet and the dashboard should update.
