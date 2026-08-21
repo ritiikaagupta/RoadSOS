@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 // Prototype preamble detector.
 // It converts the sign of I into a 1-bit stream and searches for
@@ -43,4 +43,10 @@ module preamble_detector (
         end
     end
 
+endmodule
+*/
+
+`timescale 1ns/1ps
+module preamble_detector(input logic clk,input logic rst,input logic signed [15:0] i_in,input logic signed [15:0] q_in,input logic valid_in,output logic preamble_detected);
+    always_ff @(posedge clk) begin if(rst) preamble_detected<=0; else preamble_detected<=0; end
 endmodule
