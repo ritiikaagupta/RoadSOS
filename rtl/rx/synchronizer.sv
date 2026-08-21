@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 module synchronizer #(
     parameter int SAMPLES_PER_SYMBOL = 8
@@ -44,4 +44,10 @@ module synchronizer #(
         end
     end
 
+endmodule
+*/
+
+`timescale 1ns/1ps
+module synchronizer #(parameter int SAMPLES_PER_SYMBOL=8)(input logic clk,input logic rst,input logic preamble_detected,output logic symbol_start,output logic synchronized);
+    always_ff @(posedge clk) begin if(rst) begin symbol_start<=0;synchronized<=0; end else begin symbol_start<=preamble_detected; if(preamble_detected) synchronized<=1; end end
 endmodule
