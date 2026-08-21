@@ -244,14 +244,33 @@ module rx_top_module #(
     parameter int CLK_FREQ_HZ=100_000_000,
     parameter int BAUD_RATE=115_200
 )(
-    input logic clk,input logic rst,input logic uart_rx,
-    output logic [47:0] packet_out,output logic packet_valid,
-    output logic crc_pass,output logic crc_done,output logic [7:0] event_id,output logic [15:0] vehicle_id,
-    output logic emergency_alert,output logic frame_error,output logic uart_activity
+    input logic clk, input logic rst, input logic uart_rx,
+    output logic [47:0] packet_out, output logic packet_valid,
+    output logic crc_pass, output logic crc_done,
+    output logic [7:0] event_id, output logic [15:0] vehicle_id,
+    output logic emergency_alert, output logic frame_error, output logic uart_activity
 );
-    logic [7:0] rx_byte; logic rx_valid; logic [7:0] parsed_event; logic [15:0] parsed_vehicle; logic [47:0] parsed_packet; logic parsed_valid;
-    uart_rx #(.CLK_FREQ_HZ(CLK_FREQ_HZ),.BAUD_RATE(BAUD_RATE)) u_uart(.clk(clk),.rst(rst),.rxd(uart_rx),.data_out(rx_byte),.data_valid(rx_valid));
-    packet_decoder u_parser(.clk(clk),.rst(rst),.byte_in(rx_byte),.byte_valid(rx_valid),.packet_out(parsed_packet),.packet_valid(parsed_valid),.event_id(parsed_event),.vehicle_id(parsed_vehicle),.frame_error(frame_error));
-    crc_checker u_crc(.clk(clk),.rst(rst),.packet_in(parsed_packet),.packet_valid(parsed_valid),.crc_pass(crc_pass),.crc_done(crc_done));
-    assign packet_out=parsed_packet; assign packet_valid=parsed_valid; assign event_id=parsed_event; assign vehicle_id=parsed_vehicle; assign emergency_alert=crc_done && crc_pass; assign uart_activity=rx_valid;
+    logic [7:0] rx_byte, parsed_event;
+    logic rx_valid, parsed_valid;
+    logic [15:0] parsed_vehicle;
+    logic [47:0] parsed_packet;
+
+    uart_rx #(.CLK_FREQ_HZ(CLK_FREQ_HZ),.BAUD_RATE(BAUD_RATE)) u_uart(
+        .clk(clk),.rst(rst),.rxd(uart_rx),.data_out(rx_byte),.data_valid(rx_valid)
+    );
+    packet_decoder u_parser(
+        .clk(clk),.rst(rst),.byte_in(rx_byte),.byte_valid(rx_valid),
+        .packet_out(parsed_packet),.packet_valid(parsed_valid),.event_id(parsed_event),
+        .vehicle_id(parsed_vehicle),.frame_error(frame_error)
+    );
+    crc_checker u_crc(
+        .clk(clk),.rst(rst),.packet_in(parsed_packet),.packet_valid(parsed_valid),
+        .crc_pass(crc_pass),.crc_done(crc_done)
+    );
+    assign packet_out=parsed_packet;
+    assign packet_valid=parsed_valid;
+    assign event_id=parsed_event;
+    assign vehicle_id=parsed_vehicle;
+    assign emergency_alert=crc_done && crc_pass;
+    assign uart_activity=rx_valid;
 endmodule
