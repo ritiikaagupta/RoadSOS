@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoadSOS // Spartan-7 HIL Telemetry</title>
+<style>
+:root{
+  --bg-main:#090d16;--bg-card:#131a26;--bg-terminal:#05070b;
+  --accent-blue:#00f0ff;--accent-green:#39ff14;--accent-red:#ff073a;
+  --accent-yellow:#ffdf00;--text-muted:#64748b;
+}
+*{box-sizing:border-box}
+body{font-family:"Segoe UI",Monaco,monospace;background:var(--bg-main);color:#e2e8f0;margin:0;padding:20px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e293b;padding-bottom:15px;margin-bottom:20px;gap:20px}
+h1{margin:0;font-size:1.6rem;letter-spacing:2px;color:#fff}
+.fpga-badge{font-size:.8rem;background:#1e293b;padding:4px 10px;border-radius:4px;border:1px solid #334155;color:var(--accent-blue);white-space:nowrap}
+.grid{display:grid;grid-template-columns:1.8fr 1.2fr;gap:20px}
+.card{background:var(--bg-card);border:1px solid #1e293b;border-radius:8px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.card h2{font-size:1.1rem;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px;border-left:3px solid var(--accent-blue);padding-left:10px}
+.btn{background:#1e293b;color:#fff;border:1px solid #334155;padding:10px 18px;border-radius:4px;font-weight:600;cursor:pointer;font-family:monospace}
+.btn:hover{background:#334155;border-color:var(--accent-blue)}
+.btn-connect{background:#0284c7;border-color:#0369a1}
+.btn-connect.active{background:#16a34a;border-color:#15803d}
+.btn-trigger{background:var(--accent-red);color:#fff;border:none;font-size:1rem;width:100%;padding:14px;box-shadow:0 4px 15px rgba(255,7,58,.3);text-transform:uppercase;letter-spacing:1px;font-weight:bold;margin-top:15px}
+.btn-secondary{width:100%;margin-top:10px}
+.alert-banner{display:none;background:rgba(255,7,58,.15);border:2px solid var(--accent-red);color:#fff;padding:15px;border-radius:6px;font-weight:bold;margin-bottom:20px;text-align:center;font-size:1.2rem}
+.alert-active{display:block;animation:flash 1s infinite alternate}
+@keyframes flash{from{border-color:var(--accent-red)}to{border-color:#ff5274}}
+.metrics-container{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px}
+.metric-card{background:#0b111a;border:1px solid #1e293b;padding:15px;border-radius:6px;text-align:center}
+.metric-label{font-size:.72rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:1px}
+.metric-value{font-size:1.55rem;font-weight:700;color:#fff;margin-top:5px;font-family:monospace}
+.type-matrix{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+.type-btn{background:#0f172a;border:1px solid #334155;color:#94a3b8;padding:12px;border-radius:6px;cursor:pointer;text-align:left;font-weight:600;display:flex;align-items:center;gap:10px}
+.type-btn.selected[data-type="ACCIDENT"]{border-color:var(--accent-red);color:var(--accent-red)}
+.type-btn.selected[data-type="BREAKDOWN"]{border-color:var(--accent-yellow);color:var(--accent-yellow)}
+.type-btn.selected[data-type="HAZARD"]{border-color:#f97316;color:#f97316}
+.type-btn.selected[data-type="BRAKING"]{border-color:var(--accent-blue);color:var(--accent-blue)}
+.led-panel{display:flex;justify-content:space-around;background:#0b111a;padding:15px;border-radius:6px;border:1px solid #1e293b;margin-bottom:20px}
+.led-wrapper{text-align:center;font-size:.7rem;font-family:monospace;color:var(--text-muted)}
+.led{width:18px;height:18px;border-radius:50%;background:#27272a;margin:0 auto 8px;border:1px solid #3f3f46}
+.led.active-green{background:#22c55e;border-color:#4ade80;box-shadow:0 0 12px #22c55e}
+.led.active-red{background:#ef4444;border-color:#f87171;box-shadow:0 0 12px #ef4444}
+.led.active-blue{background:#3b82f6;border-color:#60a5fa;box-shadow:0 0 12px #3b82f6}
+textarea{width:100%;height:380px;background:var(--bg-terminal);color:#4ade80;border:1px solid #1e293b;border-radius:6px;font-family:"Courier New",monospace;padding:12px;font-size:.85rem;line-height:1.4;resize:none}
+.form-row{margin-bottom:15px;display:flex;align-items:center;gap:15px}
+.form-row label{font-size:.85rem;color:#94a3b8;width:120px}
+input[type=text],input[type=range]{background:#0f172a;border:1px solid #334155;color:#fff;padding:8px;border-radius:4px;font-family:monospace}
+input[type=text]{width:100%}input[type=range]{flex-grow:1}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.metrics-container{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>RoadSOS // RTL Hardware Verification Platform</h1>
+    <div style="color:var(--text-muted);font-size:.8rem;margin-top:4px">
+      Real-Time HIL Telemetry Interface & Logic Viewer
+    </div>
+  </div>
+  <div class="fpga-badge">Target: XC7S50-CSGA324-1</div>
+</header>
+
+<div id="statusBanner" class="alert-banner">🚨 EMERGENCY PROTOCOL TRIGGERED 🚨</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Hardware Telemetry Control Center</h2>
+
+    <div style="display:flex;gap:15px;margin-bottom:25px;flex-wrap:wrap">
+      <button id="connectBtn" class="btn btn-connect">🔌 Open Serial Logic Link</button>
+      <button id="disconnectBtn" class="btn" disabled>Disconnect</button>
+      <div id="hwStatusText" style="align-self:center;font-family:monospace;font-size:.85rem;color:var(--text-muted)">
+        Status: Disconnected
+      </div>
+    </div>
+
+    <div class="type-matrix">
+      <button class="type-btn selected" data-type="ACCIDENT">💥 Accident Collision</button>
+      <button class="type-btn" data-type="BREAKDOWN">⚠️ Vehicle Breakdown</button>
+      <button class="type-btn" data-type="HAZARD">🚧 Road Hazard</button>
+      <button class="type-btn" data-type="BRAKING">🛑 Sudden Braking</button>
+    </div>
+
+    <div class="form-row">
+      <label>Vehicle ID:</label>
+      <input type="text" id="vID" value="HR26-VLSI-2026" maxlength="16">
+    </div>
+
+    <div class="form-row">
+      <label>Impact G-Force:</label>
+      <input type="range" id="gSlider" min="0" max="20" step="1" value="14">
+      <span id="gText" style="font-family:monospace;min-width:40px">14G</span>
+    </div>
+
+    <div class="form-row">
+      <label>Velocity:</label>
+      <input type="range" id="vSlider" min="0" max="180" step="5" value="110">
+      <span id="vText" style="font-family:monospace;min-width:70px">110 km/h</span>
+    </div>
+
+    <hr style="border-color:#1e293b;margin:25px 0">
+
+    <div class="metrics-container">
+      <div class="metric-card">
+        <div class="metric-label">G-Force</div>
+        <div id="gForceVal" class="metric-value">-- G</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Velocity</div>
+        <div id="speedVal" class="metric-value">-- km/h</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">CRC-8</div>
+        <div id="crcValue" class="metric-value" style="color:var(--accent-yellow)">0x00</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Latency</div>
+        <div id="latencyValue" class="metric-value" style="color:var(--accent-blue)">-- ms</div>
+      </div>
+    </div>
+
+    <div class="metric-card" style="margin-bottom:15px">
+      <div class="metric-label">Vehicle / Event Status</div>
+      <div id="statusRegister" class="metric-value" style="color:var(--accent-red)">IDLE</div>
+    </div>
+
+    <button id="sendBtn" class="btn btn-trigger">🚀 Manual Test Frame</button>
+  </div>
+
+  <div class="card">
+    <h2>Spartan-7 FPGA Physical LED Mappings</h2>
+
+    <div class="led-panel">
+      <div class="led-wrapper">
+        <div id="led_packet" class="led"></div>
+        <div>packet_valid</div>
+        <strong style="color:#64748b;font-size:.6rem">G1</strong>
+      </div>
+      <div class="led-wrapper">
+        <div id="led_crc_done" class="led"></div>
+        <div>crc_done</div>
+        <strong style="color:#64748b;font-size:.6rem">F2</strong>
+      </div>
+      <div class="led-wrapper">
+        <div id="led_crc" class="led"></div>
+        <div>crc_pass</div>
+        <strong style="color:#64748b;font-size:.6rem">G2</strong>
+      </div>
+      <div class="led-wrapper">
+        <div id="led_alert" class="led"></div>
+        <div>emergency_alert</div>
+        <strong style="color:#64748b;font-size:.6rem">F1</strong>
+      </div>
+    </div>
+
+    <h2>📟 Serial Bitstream Logic Terminal</h2>
+    <textarea id="serialLog" readonly placeholder="Connect the FPGA to capture the hardware trace..."></textarea>
+    <button id="clearLogBtn" class="btn btn-secondary">Clear Terminal Buffer</button>
+  </div>
+</div>
+
+<script>
+let port = null;
+let writer = null;
+let reader = null;
+let readableStreamClosed = null;
+let currentEventType = "ACCIDENT";
+let transmissionTimestamp = 0;
+
+const BAUD_RATE = 9600;
+const START = "$$SOS:";
+const END = "%%";
+
+const $ = id => document.getElementById(id);
+
+function log(message) {
+  const box = $("serialLog");
+  box.value += message;
+  box.scrollTop = box.scrollHeight;
+}
+
+function calculateCRC8(str) {
+  let crc = 0x00;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i);
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x80) ? ((crc << 1) ^ 0x07) : (crc << 1);
+      crc &= 0xFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(2, "0");
+}
+
+function getPayload() {
+  const id = $("vID").value.trim().replace(/[,:%\r\n]/g, "_").slice(0,16);
+  return `ID=${id},TYP=${currentEventType},G=${$("gSlider").value},S=${$("vSlider").value}`;
+}
+
+function updateControls() {
+  $("gText").textContent = $("gSlider").value + "G";
+  $("vText").textContent = $("vSlider").value + " km/h";
+  const crc = calculateCRC8(getPayload());
+  $("crcValue").textContent = "0x" + crc;
+}
+
+function setLed(id, state) {
+  $(id).className = "led" + (state ? " " + state : "");
+}
+
+function resetLeds() {
+  setLed("led_packet","");
+  setLed("led_crc_done","");
+  setLed("led_crc","");
+  setLed("led_alert","");
+}
+
+function processPacket(line) {
+  const start = line.indexOf(START);
+  const end = line.indexOf(END, start);
+
+  if (start === -1 || end === -1) return;
+
+  const packet = line.substring(start, end + END.length);
+  const payloadStart = start + START.length;
+  const crcMarker = line.indexOf(",CRC=", payloadStart);
+
+  if (crcMarker === -1 || crcMarker > end) {
+    log("\n[RX ERROR] CRC field missing\n");
+    return;
+  }
+
+  const payload = line.substring(payloadStart, crcMarker);
+  const remoteCrc = line.substring(crcMarker + 5, end).trim().toUpperCase();
+  const localCrc = calculateCRC8(payload);
+
+  const typeMatch = payload.match(/(?:^|,)TYP=([^,]+)/);
+  const gMatch = payload.match(/(?:^|,)G=([^,]+)/);
+  const sMatch = payload.match(/(?:^|,)S=([^,]+)/);
+  const idMatch = payload.match(/(?:^|,)ID=([^,]+)/);
+
+  const event = typeMatch ? typeMatch[1].trim() : "UNKNOWN";
+  const g = gMatch ? gMatch[1].trim() : null;
+  const speed = sMatch ? sMatch[1].trim() : null;
+  const vehicle = idMatch ? idMatch[1].trim() : null;
+
+  $("gForceVal").textContent = g !== null ? g + " G" : "-- G";
+  $("speedVal").textContent = speed !== null ? speed + " km/h" : "-- km/h";
+  if (vehicle) $("vID").value = vehicle;
+
+  $("statusRegister").textContent = event;
+  $("statusRegister").style.color =
+    event === "ACCIDENT" ? "var(--accent-red)" :
+    event === "BREAKDOWN" ? "var(--accent-yellow)" :
+    event === "HAZARD" ? "#f97316" :
+    event === "BRAKING" ? "var(--accent-blue)" : "#fff";
+
+  $("statusBanner").className = "alert-banner alert-active";
+  $("statusBanner").textContent = `🚨 EMERGENCY PROTOCOL TRIGGERED: ${event} DETECTED 🚨`;
+
+  setLed("led_packet","active-green");
+  setLed("led_crc_done","active-blue");
+  setLed("led_alert","active-red");
+
+  if (remoteCrc === localCrc) {
+    setLed("led_crc","active-green");
+    $("crcValue").textContent = "0x" + localCrc + " [OK]";
+  } else {
+    setLed("led_crc","");
+    $("crcValue").textContent = `ERR (${remoteCrc || "--"})`;
+    log(`[CRC ERROR] Expected ${localCrc}, received ${remoteCrc || "--"}\n`);
+  }
+
+  if (transmissionTimestamp) {
+    $("latencyValue").textContent =
+      (performance.now() - transmissionTimestamp).toFixed(2) + " ms";
+    transmissionTimestamp = 0;
+  }
+
+  log(`[PACKET OK] ${packet}\n`);
+}
+
+async function readLoop() {
+  if (!port || !port.readable) return;
+
+  const decoder = new TextDecoderStream();
+  readableStreamClosed = port.readable.pipeTo(decoder.writable);
+  reader = decoder.readable.getReader();
+
+  let buffer = "";
+
+  try {
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      log(value);
+      buffer += value;
+
+      // Process complete lines.
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        processPacket(line);
+      }
+
+      // Also process a packet if the FPGA does not send newline.
+      let start = buffer.indexOf(START);
+      let end = buffer.indexOf(END, start);
+      if (start !== -1 && end !== -1) {
+        const packet = buffer.substring(start, end + END.length);
+        processPacket(packet);
+        buffer = buffer.substring(end + END.length);
+      }
+
+      if (buffer.length > 2048) buffer = buffer.slice(-1024);
+    }
+  } catch (err) {
+    if (err.name !== "NetworkError") {
+      log(`[SYSTEM READ ERROR] ${err.message}\n`);
+    }
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+    reader = null;
+  }
+}
+
+async function connectSerial() {
+  if (!("serial" in navigator)) {
+    alert("Web Serial is not supported. Use Google Chrome or Microsoft Edge.");
+    return;
+  }
+
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({
+      baudRate: BAUD_RATE,
+      dataBits: 8,
+      stopBits: 1,
+      parity: "none",
+      flowControl: "none"
+    });
+
+    $("connectBtn").classList.add("active");
+    $("connectBtn").textContent = "✅ FPGA Link Active";
+    $("disconnectBtn").disabled = false;
+    $("hwStatusText").textContent = `Status: Connected at ${BAUD_RATE} bps`;
+    $("hwStatusText").style.color = "var(--accent-green)";
+
+    log(`[SYSTEM] Serial connected at ${BAUD_RATE} baud.\n`);
+    readLoop();
+  } catch (err) {
+    log(`[HARDWARE ERROR] ${err.message}\n`);
+    port = null;
+  }
+}
+
+async function disconnectSerial() {
+  try {
+    if (reader) {
+      try { await reader.cancel(); } catch (_) {}
+    }
+    if (readableStreamClosed) {
+      try { await readableStreamClosed.catch(() => {}); } catch (_) {}
+    }
+    if (port) {
+      try { await port.close(); } catch (_) {}
+    }
+  } finally {
+    reader = null;
+    writer = null;
+    readableStreamClosed = null;
+    port = null;
+    $("connectBtn").classList.remove("active");
+    $("connectBtn").textContent = "🔌 Open Serial Logic Link";
+    $("disconnectBtn").disabled = true;
+    $("hwStatusText").textContent = "Status: Disconnected";
+    $("hwStatusText").style.color = "var(--text-muted)";
+    log("[SYSTEM] Serial disconnected.\n");
+  }
+}
+
+async function sendManualFrame() {
+  if (!port || !port.writable) {
+    alert("Connect the FPGA first.");
+    return;
+  }
+
+  const payload = getPayload();
+  const crc = calculateCRC8(payload);
+  const packet = `${START}${payload},CRC=${crc}${END}\n`;
+
+  try {
+    writer = port.writable.getWriter();
+    transmissionTimestamp = performance.now();
+    await writer.write(new TextEncoder().encode(packet));
+    writer.releaseLock();
+    writer = null;
+
+    log(`[TX] ${packet}`);
+    $("statusRegister").textContent = "TX_BUSY";
+    $("statusRegister").style.color = "var(--accent-yellow)";
+  } catch (err) {
+    if (writer) {
+      try { writer.releaseLock(); } catch (_) {}
+      writer = null;
+    }
+    log(`[TX ERROR] ${err.message}\n`);
+  }
+}
+
+document.querySelectorAll(".type-btn").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("selected"));
+    button.classList.add("selected");
+    currentEventType = button.dataset.type;
+    updateControls();
+  });
+});
+
+$("gSlider").addEventListener("input", updateControls);
+$("vSlider").addEventListener("input", updateControls);
+$("vID").addEventListener("input", updateControls);
+$("connectBtn").addEventListener("click", connectSerial);
+$("disconnectBtn").addEventListener("click", disconnectSerial);
+$("sendBtn").addEventListener("click", sendManualFrame);
+
+$("clearLogBtn").addEventListener("click", () => $("serialLog").value = "");
+
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", async event => {
+    if (port === event.target) await disconnectSerial();
+  });
+}
+
+updateControls();
+resetLeds();
+</script>
+</body>
+</html>
