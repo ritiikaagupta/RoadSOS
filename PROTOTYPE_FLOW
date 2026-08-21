@@ -1,0 +1,56 @@
+# RoadSOS SAFE-Link no-LoRa prototype
+
+## Why this version exists
+
+The hackathon has not yet supplied the LoRa RF modules. Therefore the FPGA cannot currently perform the final RF hop. This version intentionally separates the application/framing layer from the future LoRa PHY and gives you a working physical demonstration:
+
+`TX FPGA -> USB/UART -> PC -> USB/UART -> RX FPGA -> decoded packet -> dashboard`
+
+The PC is a **transparent bridge**, not the emergency decision-maker. The RX FPGA performs frame parsing and CRC validation.
+
+## Packet
+
+`A5 | EVENT_ID | VEHICLE_ID[15:8] | VEHICLE_ID[7:0] | CRC_H | CRC_L | 5A | 0A`
+
+CRC-16/CCITT-FALSE is calculated over the first four bytes. Example:
+
+`A5 01 00 17 87 15 5A 0A`
+
+## FPGA 1: TX
+
+Top module: `rtl/tx/tx_top_module.sv`
+
+- 100 MHz clock
+- BTN0 reset
+- BTN1 emergency trigger
+- SW0..SW7 select Event ID
+- Vehicle ID is parameterized as `16'h0017`
+- UART: 115200, 8-N-1
+- Press BTN1 once to send one complete frame
+
+## FPGA 2: RX
+
+Top module: `rtl/rx/rx_top_module.sv`
+
+- 100 MHz clock
+- BTN0 reset
+- UART receives the forwarded bytes
+- RX parser checks A5/5A framing
+- CRC checker validates the packet
+- LED0 packet valid, LED1 CRC pass, LED2 emergency alert, LED3 CRC done
+
+## PC
+
+Install:
+
+`python -m pip install pyserial`
+
+Run:
+
+`python python/pc_bridge_dashboard.py --tx COM7 --rx COM8`
+
+Replace COM7/COM8 with the two actual ports shown by Device Manager.
+
+## Important limitation
+
+This is a valid **prototype of the communication/application path**, but it is not proof of an RF LoRa link. Once the LoRa module arrives, the UART bridge can be replaced by the LoRa PHY/RF interface while keeping the packet format and CRC logic.
