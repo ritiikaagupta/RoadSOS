@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 module tb_packet_generator;
 
@@ -342,4 +342,23 @@ module tb_packet_generator;
 
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module tb_packet_generator;
+    logic clk=0,rst=1,trigger=0,uart_busy=0,uart_done=0;
+    logic [7:0] event_id=8'h01,uart_data; logic [15:0] vehicle_id=16'h0017;
+    logic uart_start,busy,packet_done; logic [47:0] packet_out;
+    packet_generator dut(.clk(clk),.rst(rst),.emergency_trigger(trigger),.event_id(event_id),.vehicle_id(vehicle_id),.uart_busy(uart_busy),.uart_done(uart_done),.uart_start(uart_start),.uart_data(uart_data),.busy(busy),.packet_done(packet_done),.packet_out(packet_out));
+    always #5 clk=~clk;
+    task automatic finish_uart_byte;
+        begin @(posedge clk); if(uart_start) begin uart_busy<=1; repeat(10) @(posedge clk); uart_busy<=0; uart_done<=1; @(posedge clk); uart_done<=0; end end
+    endtask
+    initial begin
+        repeat(2) @(posedge clk); rst=0; @(posedge clk); trigger=1; @(posedge clk); trigger=0;
+        wait(busy); wait(uart_start); // CRC phase is internal and packet_out is valid before first UART byte.
+        while (!packet_done) begin finish_uart_byte; end
+        if (packet_out !== 48'hA50100178715) begin $display("PACKET TEST FAIL: %h",packet_out); $fatal; end
+        $display("PACKET TEST PASS: %h",packet_out); #20 $finish;
+    end
 endmodule
