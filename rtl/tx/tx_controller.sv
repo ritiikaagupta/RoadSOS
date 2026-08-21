@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 // Controller for the corrected TX chain.
 //
@@ -124,4 +124,9 @@ module tx_controller #(
             event_id_out <= event_id;
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module tx_controller(input logic clk,input logic rst,input logic emergency_trigger,input logic packet_done,input logic frame_done,input logic tx_done,output logic tx_active,output logic busy);
+    always_ff @(posedge clk) begin if(rst) begin tx_active<=0;busy<=0; end else begin busy<=emergency_trigger|tx_active; if(emergency_trigger) tx_active<=1; else if(tx_done) tx_active<=0; end end
 endmodule
