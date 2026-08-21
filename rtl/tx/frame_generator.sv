@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 // Frame format:
@@ -41,4 +42,9 @@ module frame_generator #(
         end
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module frame_generator #(parameter int PACKET_WIDTH=48)(input logic clk,input logic rst,input logic packet_valid,input logic [PACKET_WIDTH-1:0] packet,output logic frame_valid,output logic [63:0] frame,output logic frame_done);
+    always_ff @(posedge clk) begin if(rst) begin frame<=0; frame_valid<=0; frame_done<=0; end else begin frame_valid<=0; frame_done<=0; if(packet_valid) begin frame<={8'hA5,packet,8'h5A}; frame_valid<=1; frame_done<=1; end end end
 endmodule
