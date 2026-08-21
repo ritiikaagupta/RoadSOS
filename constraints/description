@@ -24,3 +24,29 @@ The board's USB PROG/UART connector exposes the FPGA UART interface. The board s
 - BTN1 -> J5 emergency trigger
 
 Use one USB cable per FPGA board if you are using two boards. Windows will normally expose two COM ports. Verify the actual COM numbers in Device Manager before running the PC bridge.
+
+1. Press emergency button
+             ↓
+2. emergency_input detects it
+             ↓
+3. event_id gets captured
+             ↓
+4. packet_generator creates packet
+             ↓
+5. Packet bytes go to UART
+             ↓
+6. UART converts bytes → serial bits
+             ↓
+7. uart_tx pin outputs those bits
+             ↓
+8. Boolean Board USB-UART receives them
+             ↓
+9. USB sends them to PC
+             ↓
+10. Python/serial terminal receives packet
+             ↓
+11. PC displays:
+       Vehicle ID
+       Event ID
+       Emergency status
+       etc.
