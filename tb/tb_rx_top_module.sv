@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 module rx_top_module_tb;
@@ -315,4 +316,30 @@ module rx_top_module_tb;
 
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module tb_rx_top_module;
+    logic clk=0,rst=1,uart_rx=1;
+    logic [47:0] packet_out; logic packet_valid,crc_pass,crc_done;
+    logic [7:0] event_id; logic [15:0] vehicle_id; logic emergency_alert,frame_error,uart_activity;
+    rx_top_module dut(.clk(clk),.rst(rst),.uart_rx(uart_rx),.packet_out(packet_out),.packet_valid(packet_valid),.crc_pass(crc_pass),.crc_done(crc_done),.event_id(event_id),.vehicle_id(vehicle_id),.emergency_alert(emergency_alert),.frame_error(frame_error),.uart_activity(uart_activity));
+    always #5 clk=~clk;
+    localparam int CPB=868;
+    task automatic send_uart_byte(input [7:0] b);
+        integer i;
+        begin
+            uart_rx<=0; repeat(CPB) @(posedge clk);
+            for(i=0;i<8;i=i+1) begin uart_rx<=b[i]; repeat(CPB) @(posedge clk); end
+            uart_rx<=1; repeat(CPB) @(posedge clk);
+        end
+    endtask
+    initial begin
+        repeat(20) @(posedge clk); rst=0;
+        send_uart_byte(8'hA5); send_uart_byte(8'h01); send_uart_byte(8'h00); send_uart_byte(8'h17);
+        send_uart_byte(8'h87); send_uart_byte(8'h15); send_uart_byte(8'h5A); send_uart_byte(8'h0A);
+        wait(crc_done); if(!crc_pass || !emergency_alert) begin $display("RX TEST FAIL"); $fatal; end
+        $display("RX TEST PASS: packet=%h",packet_out); #100 $finish;
+    end
+    initial begin #1000000; $fatal; end
 endmodule
