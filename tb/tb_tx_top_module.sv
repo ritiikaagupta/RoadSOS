@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 module tx_top_module_tb;
@@ -308,4 +309,18 @@ module tx_top_module_tb;
 
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module tb_tx_top_module;
+    logic clk=0,rst=1,trigger=0; logic [7:0] event_id=8'h01;
+    logic uart_tx,busy,tx_done; logic [7:0] debug_event_id; logic [15:0] debug_vehicle_id;
+    tx_top_module #(.VEHICLE_ID(16'h0017)) dut(.clk(clk),.rst(rst),.emergency_trigger(trigger),.event_id(event_id),.uart_tx(uart_tx),.busy(busy),.tx_done(tx_done),.debug_event_id(debug_event_id),.debug_vehicle_id(debug_vehicle_id));
+    always #5 clk=~clk;
+    initial begin
+        repeat(20) @(posedge clk); rst=0; repeat(5) @(posedge clk); trigger=1; @(posedge clk); trigger=0;
+        wait(tx_done); if(debug_event_id!==8'h01 || debug_vehicle_id!==16'h0017) begin $display("TX TEST FAIL"); $fatal; end
+        $display("TX TEST PASS event=%h vehicle=%h",debug_event_id,debug_vehicle_id); #100 $finish;
+    end
+    initial begin #1000000; $fatal; end
 endmodule
