@@ -50,3 +50,31 @@ Use one USB cable per FPGA board if you are using two boards. Windows will norma
        Event ID
        Emergency status
        etc.
+
+
+                 RX FPGA
+
+Incoming UART
+     │
+     ▼
+┌─────────────┐
+│ UART RX     │
+└──────┬──────┘
+       │
+       ▼
+ Packet Decoder
+       │
+       ▼
+ Packet detected
+       │
+       ├──────────────► 🟢 LED_PACKET
+       │
+       ▼
+ CRC Checker
+       │
+       ├── PASS ──────► 🟢 LED_CRC_PASS
+       │
+       ▼
+ Emergency packet
+       │
+       └──────────────► 🟢 LED_EMERGENCY
