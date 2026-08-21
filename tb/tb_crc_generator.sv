@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 module crc16_ccitt_stream_tb;
@@ -212,4 +213,25 @@ module crc16_ccitt_stream_tb;
 
     end
 
+endmodule
+*/
+
+`timescale 1ns/1ps
+module tb_crc_generator;
+    logic clk=0, rst=1, start=0, data_valid=0, last=0;
+    logic [7:0] data_in=0; logic [15:0] crc_out; logic crc_valid;
+    crc_generator dut(.clk(clk),.rst(rst),.start(start),.data_valid(data_valid),.last(last),.data_in(data_in),.crc_out(crc_out),.crc_valid(crc_valid));
+    always #5 clk=~clk;
+    task automatic send_byte(input [7:0] b,input bit first,input bit final_byte);
+        begin @(negedge clk); data_in=b; start=first; data_valid=1; last=final_byte; @(posedge clk); #1; data_valid=0; start=0; last=0; end
+    endtask
+    initial begin
+        repeat(2) @(posedge clk); rst=0;
+        send_byte(8'h31,1,0); send_byte(8'h32,0,0); send_byte(8'h33,0,0); send_byte(8'h34,0,0);
+        send_byte(8'h35,0,0); send_byte(8'h36,0,0); send_byte(8'h37,0,0); send_byte(8'h38,0,0); send_byte(8'h39,0,1);
+        #1;
+        if (!crc_valid || crc_out !== 16'h29B1) begin $display("CRC TEST FAIL: got %h valid=%b",crc_out,crc_valid); $fatal; end
+        $display("CRC TEST PASS: 123456789 -> %h",crc_out);
+        #20 $finish;
+    end
 endmodule
