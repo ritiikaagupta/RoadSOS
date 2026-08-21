@@ -1,0 +1,24 @@
+`timescale 1ns/1ps
+module crc16_ccitt (
+    input  logic [31:0] data_in,
+    output logic [15:0] crc_out
+);
+    function automatic [15:0] update_byte(input [15:0] crc, input [7:0] data);
+        integer i; reg [15:0] c;
+        begin
+            c = crc;
+            for (i=0;i<8;i=i+1) begin
+                if (c[15] ^ data[7-i]) c = {c[14:0],1'b0} ^ 16'h1021;
+                else c = {c[14:0],1'b0};
+            end
+            update_byte = c;
+        end
+    endfunction
+    logic [15:0] c1,c2,c3;
+    always_comb begin
+        c1 = update_byte(16'hFFFF, data_in[31:24]);
+        c2 = update_byte(c1, data_in[23:16]);
+        c3 = update_byte(c2, data_in[15:8]);
+        crc_out = update_byte(c3, data_in[7:0]);
+    end
+endmodule
