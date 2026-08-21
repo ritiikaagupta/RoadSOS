@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 // Digital baseband chirp prototype.
@@ -72,4 +73,10 @@ module chirp_generator #(
         endcase
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+// Placeholder for the future RF-less digital LoRa PHY. The current hackathon prototype uses UART-PC bridging.
+module chirp_generator #(parameter int OUTPUT_WIDTH=16)(input logic clk,input logic reset,input logic enable,input logic [6:0] symbol,input logic symbol_valid,output logic signed [OUTPUT_WIDTH-1:0] i_out,output logic signed [OUTPUT_WIDTH-1:0] q_out,output logic valid);
+    always_ff @(posedge clk) begin if(reset) begin i_out<=0;q_out<=0;valid<=0; end else begin valid<=enable; if(enable) begin i_out <= symbol_valid ? $signed({9'd0,symbol}) : i_out; q_out<=0; end end end
 endmodule
