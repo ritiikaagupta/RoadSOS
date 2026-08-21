@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 // Maps a 64-bit frame into 7-bit symbols.
 // 64 bits require 10 symbols:
@@ -60,4 +60,17 @@ module symbol_mapper #(
         end
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module symbol_mapper #(parameter int FRAME_WIDTH=64,parameter int SF=7)(input logic clk,input logic rst,input logic frame_valid,input logic [FRAME_WIDTH-1:0] frame,output logic [SF-1:0] symbol,output logic symbol_valid,output logic mapping_done);
+    localparam int N=(FRAME_WIDTH+SF-1)/SF; localparam int P=N*SF; localparam int CW=(N<=2)?1:$clog2(N);
+    logic [P-1:0] buf; logic [CW-1:0] count; logic active;
+    always_ff @(posedge clk) begin
+        if(rst) begin buf<='0; count<='0; active<=0; symbol<='0; symbol_valid<=0; mapping_done<=0; end
+        else begin symbol_valid<=0; mapping_done<=0;
+            if(frame_valid && !active) begin buf<={{(P-FRAME_WIDTH){1'b0}},frame}; count<='0; active<=1; end
+            else if(active) begin symbol<=buf[P-1-count*SF -: SF]; symbol_valid<=1; if(count==N-1) begin active<=0; mapping_done<=1; end else count<=count+1'b1; end
+        end
+    end
 endmodule
