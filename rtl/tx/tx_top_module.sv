@@ -1,282 +1,300 @@
-/*`timescale 1ns/1ps
+`timescale 1ns/1ps
 
 module tx_top_module #(
-    parameter logic [7:0]  HEADER     = 8'hA5,
-    parameter logic [15:0] VEHICLE_ID = 16'h0001,
+    parameter int CLK_FREQ_HZ = 100_000_000,
+    parameter int BAUD_RATE   = 115_200,
 
-    parameter int PHASE_WIDTH  = 32,
-    parameter int OUTPUT_WIDTH = 16,
+    parameter logic [15:0] VEHICLE_ID = 16'h0017,
 
-    parameter logic [PHASE_WIDTH-1:0]
-        BASE_PHASE_INCREMENT = 32'd1000000,
-
-    parameter logic [PHASE_WIDTH-1:0]
-        SYMBOL_PHASE_STEP = 32'd10000
+    // ---------------------------------------------------------
+    // LED indication duration
+    // 100 MHz × 0.5 sec = 50,000,000 cycles
+    // ---------------------------------------------------------
+    parameter int LED_HOLD_CYCLES = 50_000_000
 )(
-    input  logic clk,
-    input  logic rst,
+    input  logic        clk,
+    input  logic        rst,
 
-    // ------------------------------------------------------------
+    // ---------------------------------------------------------
     // Emergency input
-    // ------------------------------------------------------------
-    input  logic       emergency_trigger,
-    input  logic [7:0] event_id,
+    // ---------------------------------------------------------
+    input  logic        emergency_trigger,
 
-    // ------------------------------------------------------------
-    // TX control/status
-    // ------------------------------------------------------------
-    output logic       busy,
-    output logic       tx_done,
+    // ---------------------------------------------------------
+    // Event ID from switches
+    // ---------------------------------------------------------
+    input  logic [7:0]  event_id,
 
-    // ------------------------------------------------------------
-    // Digital I/Q output
-    // ------------------------------------------------------------
-    output logic signed [OUTPUT_WIDTH-1:0] i_out,
-    output logic signed [OUTPUT_WIDTH-1:0] q_out,
-    output logic                            tx_valid
+    // ---------------------------------------------------------
+    // UART
+    // ---------------------------------------------------------
+    output logic        uart_tx,
+
+    // ---------------------------------------------------------
+    // Main status outputs
+    // ---------------------------------------------------------
+    output logic        busy,
+    output logic        tx_done,
+
+    // ---------------------------------------------------------
+    // Debug outputs
+    // ---------------------------------------------------------
+    output logic [7:0]  debug_event_id,
+    output logic [15:0] debug_vehicle_id,
+
+    // ---------------------------------------------------------
+    // Status LEDs / RGB channels
+    // ---------------------------------------------------------
+    output logic        led_emergency,
+    output logic        led_packet,
+    output logic        led_tx,
+    output logic        led_done
 );
 
-    // ============================================================
-    // Emergency input
-    // ============================================================
 
-    logic       event_valid;
-    logic [7:0] event_id_int;
+    // =========================================================
+    // INTERNAL SIGNALS
+    // =========================================================
 
+    logic       uart_start;
+    logic       uart_busy;
+    logic       uart_byte_done;
 
-    // ============================================================
-    // Packet generator
-    // ============================================================
+    logic [7:0] uart_data;
 
-    logic [47:0] packet;
-    logic        packet_valid;
-    logic        packet_done;
+    logic       packet_done;
+    logic [47:0] packet_out;
 
-
-    // ============================================================
-    // Frame generator
-    // ============================================================
-
-    logic [63:0] frame;
-    logic        frame_valid;
-    logic        frame_done;
+    logic       event_pulse;
+    logic [7:0] event_latched;
 
 
-    // ============================================================
-    // Symbol mapper
-    // ============================================================
+    // =========================================================
+    // EMERGENCY INPUT MODULE
+    // =========================================================
 
-    logic [6:0] symbol;
-    logic       symbol_valid;
-    logic       mapping_done;
-
-
-    // ============================================================
-    // Chirp generator
-    // ============================================================
-
-    logic signed [OUTPUT_WIDTH-1:0] chirp_i;
-    logic signed [OUTPUT_WIDTH-1:0] chirp_q;
-    logic                           chirp_valid;
+    emergency_input u_evt (
+        .clk               (clk),
+        .rst               (rst),
+        .emergency_trigger (emergency_trigger),
+        .event_id          (event_id),
+        .event_valid       (event_pulse),
+        .event_id_out      (event_latched)
+    );
 
 
-    // ============================================================
-    // Simple TX state machine
-    // ============================================================
+    // =========================================================
+    // PACKET GENERATOR
+    // =========================================================
 
-    typedef enum logic [2:0] {
-        TX_IDLE,
-        TX_PACKET,
-        TX_FRAME,
-        TX_SYMBOL,
-        TX_DONE
-    } tx_state_t;
-
-    tx_state_t state;
-
-
-    // ============================================================
-    // Emergency input
-    // ============================================================
-
-    emergency_input u_emergency_input (
+    packet_generator u_pkt (
         .clk              (clk),
         .rst              (rst),
-        .emergency_trigger(emergency_trigger),
-        .event_id         (event_id),
 
-        .event_valid      (event_valid),
-        .event_id_out     (event_id_int)
+        .emergency_trigger(event_pulse),
+        .event_id         (event_latched),
+        .vehicle_id       (VEHICLE_ID),
+
+        .uart_busy        (uart_busy),
+        .uart_done        (uart_byte_done),
+
+        .uart_start       (uart_start),
+        .uart_data        (uart_data),
+
+        .busy             (busy),
+        .packet_done      (packet_done),
+        .packet_out       (packet_out)
     );
 
 
-    // ============================================================
-    // Packet generator
-    // ============================================================
+    // =========================================================
+    // UART TRANSMITTER
+    // =========================================================
 
-    packet_generator #(
-        .HEADER(HEADER)
-    ) u_packet_generator (
-        .clk         (clk),
-        .rst         (rst),
+    uart_tx #(
+        .CLK_FREQ_HZ (CLK_FREQ_HZ),
+        .BAUD_RATE   (BAUD_RATE)
+    ) u_uart (
+        .clk       (clk),
+        .rst       (rst),
 
-        .packet_start(state == TX_PACKET),
-        .event_id    (event_id_int),
-        .vehicle_id  (VEHICLE_ID),
+        .tx_start  (uart_start),
+        .tx_data   (uart_data),
 
-        .packet      (packet),
-        .packet_valid (packet_valid),
-        .packet_done  (packet_done)
+        .tx        (uart_tx),
+        .tx_busy   (uart_busy),
+        .tx_done   (uart_byte_done)
     );
 
 
-    // ============================================================
-    // Frame generator
-    // ============================================================
+    // =========================================================
+    // DEBUG OUTPUTS
+    // =========================================================
 
-    frame_generator u_frame_generator (
-        .clk         (clk),
-        .rst         (rst),
+    assign tx_done = packet_done;
 
-        .packet_valid(packet_valid),
-        .packet      (packet),
+    // Event ID from generated packet
+    assign debug_event_id = packet_out[39:32];
 
-        .frame_valid (frame_valid),
-        .frame        (frame),
-        .frame_done   (frame_done)
-    );
+    // Vehicle ID from generated packet
+    assign debug_vehicle_id = packet_out[31:16];
 
 
-    // ============================================================
-    // Symbol mapper
-    // ============================================================
+    // =========================================================
+    // LED COUNTERS
+    // =========================================================
 
-    symbol_mapper #(
-        .FRAME_WIDTH(64),
-        .SF(7)
-    ) u_symbol_mapper (
-        .clk          (clk),
-        .rst          (rst),
-
-        .frame_valid  (frame_valid),
-        .frame        (frame),
-
-        .symbol       (symbol),
-        .symbol_valid (symbol_valid),
-        .mapping_done (mapping_done)
-    );
+    logic [31:0] emergency_led_counter;
+    logic [31:0] packet_led_counter;
+    logic [31:0] done_led_counter;
 
 
-    // ============================================================
-    // Chirp generator
-    // ============================================================
-
-    chirp_generator #(
-        .PHASE_WIDTH(PHASE_WIDTH),
-        .OUTPUT_WIDTH(OUTPUT_WIDTH),
-        .BASE_PHASE_INCREMENT(BASE_PHASE_INCREMENT),
-        .SYMBOL_PHASE_STEP(SYMBOL_PHASE_STEP)
-    ) u_chirp_generator (
-        .clk         (clk),
-        .reset       (rst),
-
-        .enable      (state == TX_SYMBOL),
-
-        .symbol      (symbol),
-        .symbol_valid(symbol_valid),
-
-        .i_out       (chirp_i),
-        .q_out       (chirp_q),
-        .valid       (chirp_valid)
-    );
-
-
-    // ============================================================
-    // TX FSM
-    // ============================================================
+    // =========================================================
+    // STATUS LED LOGIC
+    // =========================================================
+    //
+    // led_emergency:
+    //     ON for LED_HOLD_CYCLES when an emergency event occurs.
+    //
+    // led_packet:
+    //     ON for LED_HOLD_CYCLES when packet processing begins.
+    //
+    // led_tx:
+    //     ON while UART is actively transmitting.
+    //
+    // led_done:
+    //     ON for LED_HOLD_CYCLES when packet transmission finishes.
+    //
+    // =========================================================
 
     always_ff @(posedge clk) begin
 
+        // -----------------------------------------------------
+        // RESET
+        // -----------------------------------------------------
+
         if (rst) begin
-            state   <= TX_IDLE;
-            tx_done <= 1'b0;
+
+            emergency_led_counter <= 32'd0;
+            packet_led_counter    <= 32'd0;
+            done_led_counter      <= 32'd0;
+
+            led_emergency <= 1'b0;
+            led_packet    <= 1'b0;
+            led_tx        <= 1'b0;
+            led_done      <= 1'b0;
+
         end
 
         else begin
 
-            tx_done <= 1'b0;
+            // =================================================
+            // EMERGENCY LED TIMER
+            // =================================================
 
-            case (state)
+            if (emergency_led_counter != 0) begin
 
-                TX_IDLE: begin
-                    if (event_valid)
-                        state <= TX_PACKET;
-                end
+                emergency_led_counter <=
+                    emergency_led_counter - 1'b1;
 
+            end
 
-                TX_PACKET: begin
-                    if (packet_done)
-                        state <= TX_FRAME;
-                end
+            else begin
 
+                led_emergency <= 1'b0;
 
-                TX_FRAME: begin
-                    if (frame_done)
-                        state <= TX_SYMBOL;
-                end
+            end
 
 
-                TX_SYMBOL: begin
-                    if (mapping_done)
-                        state <= TX_DONE;
-                end
+            // =================================================
+            // PACKET LED TIMER
+            // =================================================
+
+            if (packet_led_counter != 0) begin
+
+                packet_led_counter <=
+                    packet_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_packet <= 1'b0;
+
+            end
 
 
-                TX_DONE: begin
-                    tx_done <= 1'b1;
-                    state   <= TX_IDLE;
-                end
+            // =================================================
+            // DONE LED TIMER
+            // =================================================
+
+            if (done_led_counter != 0) begin
+
+                done_led_counter <=
+                    done_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_done <= 1'b0;
+
+            end
 
 
-                default: begin
-                    state <= TX_IDLE;
-                end
+            // =================================================
+            // EMERGENCY DETECTED
+            // =================================================
 
-            endcase
+            if (event_pulse) begin
+
+                led_emergency <= 1'b1;
+
+                emergency_led_counter <=
+                    LED_HOLD_CYCLES;
+
+
+                // Packet generation begins
+                led_packet <= 1'b1;
+
+                packet_led_counter <=
+                    LED_HOLD_CYCLES;
+
+            end
+
+
+            // =================================================
+            // UART TRANSMISSION
+            // =================================================
+
+            if (uart_busy) begin
+
+                led_tx <= 1'b1;
+
+            end
+
+            else begin
+
+                led_tx <= 1'b0;
+
+            end
+
+
+            // =================================================
+            // TRANSMISSION COMPLETE
+            // =================================================
+
+            if (packet_done) begin
+
+                led_done <= 1'b1;
+
+                done_led_counter <=
+                    LED_HOLD_CYCLES;
+
+            end
+
         end
+
     end
 
-
-    // ============================================================
-    // Outputs
-    // ============================================================
-
-    assign i_out   = chirp_i;
-    assign q_out   = chirp_q;
-
-    assign tx_valid = chirp_valid;
-
-    assign busy =
-        (state != TX_IDLE) &&
-        (state != TX_DONE);
-
-endmodule
-*/
-`timescale 1ns/1ps
-module tx_top_module #(
-    parameter int CLK_FREQ_HZ=100_000_000,
-    parameter int BAUD_RATE=115_200,
-    parameter logic [15:0] VEHICLE_ID=16'h0017
-)(
-    input logic clk,input logic rst,input logic emergency_trigger,input logic [7:0] event_id,
-    output logic uart_tx,output logic busy,output logic tx_done,
-    output logic [7:0] debug_event_id,output logic [15:0] debug_vehicle_id
-);
-    logic uart_start,uart_busy,uart_byte_done; logic [7:0] uart_data; logic packet_done; logic [47:0] packet_out;
-    logic event_pulse; logic [7:0] event_latched;
-    emergency_input u_evt(.clk(clk),.rst(rst),.emergency_trigger(emergency_trigger),.event_id(event_id),.event_valid(event_pulse),.event_id_out(event_latched));
-    packet_generator u_pkt(.clk(clk),.rst(rst),.emergency_trigger(event_pulse),.event_id(event_latched),.vehicle_id(VEHICLE_ID),.uart_busy(uart_busy),.uart_done(uart_byte_done),.uart_start(uart_start),.uart_data(uart_data),.busy(busy),.packet_done(packet_done),.packet_out(packet_out));
-    uart_tx #(.CLK_FREQ_HZ(CLK_FREQ_HZ),.BAUD_RATE(BAUD_RATE)) u_uart(.clk(clk),.rst(rst),.tx_start(uart_start),.tx_data(uart_data),.tx(uart_tx),.tx_busy(uart_busy),.tx_done(uart_byte_done));
-    assign tx_done=packet_done;
-    assign debug_event_id=packet_out[39:32]; assign debug_vehicle_id=packet_out[31:16];
 endmodule
