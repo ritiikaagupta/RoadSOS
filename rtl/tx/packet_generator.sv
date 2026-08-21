@@ -1,3 +1,4 @@
+/*
 `timescale 1ns/1ps
 
 // ============================================================
@@ -416,6 +417,66 @@ module packet_generator (
             packet_done    = 1'b1;
 
         end
+*/
+
+        `timescale 1ns/1ps
+// SAFE-Link prototype application frame, sent over UART during the no-RF phase.
+// Bytes: A5 | EVENT_ID | VEHICLE_ID[15:8] | VEHICLE_ID[7:0] | CRC[15:8] | CRC[7:0] | 5A | 0A
+// CRC-16/CCITT-FALSE covers the first four bytes: A5, EVENT_ID, VEHICLE_ID_H, VEHICLE_ID_L.
+module packet_generator (
+    input logic clk, input logic rst,
+    input logic emergency_trigger,
+    input logic [7:0] event_id,
+    input logic [15:0] vehicle_id,
+    input logic uart_busy, input logic uart_done,
+    output logic uart_start, output logic [7:0] uart_data,
+    output logic busy, output logic packet_done,
+    output logic [47:0] packet_out
+);
+    typedef enum logic [3:0] {IDLE, SEND_A5, SEND_EVENT, SEND_VH, SEND_VL, SEND_CRC_H, SEND_CRC_L, SEND_5A, SEND_NL} state_t;
+    state_t state;
+    logic [7:0] event_reg; logic [15:0] vehicle_reg, crc_reg;
+    logic [15:0] crc_calc;
+    function automatic [15:0] crc_byte(input [15:0] crc, input [7:0] data);
+        integer i; reg [15:0] c;
+        begin c=crc; for(i=0;i<8;i=i+1) begin if(c[15]^data[7-i]) c={c[14:0],1'b0}^16'h1021; else c={c[14:0],1'b0}; end crc_byte=c; end
+    endfunction
+    always_comb begin
+        crc_calc=crc_byte(crc_byte(crc_byte(crc_byte(16'hFFFF,8'hA5),event_reg),vehicle_reg[15:8]),vehicle_reg[7:0]);
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin state<=IDLE; event_reg<=0; vehicle_reg<=0; crc_reg<=0; packet_out<=0; end
+        else begin
+            case(state)
+                IDLE: if(emergency_trigger) begin event_reg<=event_id; vehicle_reg<=vehicle_id; crc_reg<=crc_byte(crc_byte(crc_byte(crc_byte(16'hFFFF,8'hA5),event_id),vehicle_id[15:8]),vehicle_id[7:0]); packet_out<={8'hA5,event_id,vehicle_id,crc_byte(crc_byte(crc_byte(crc_byte(16'hFFFF,8'hA5),event_id),vehicle_id[15:8]),vehicle_id[7:0])}; state<=SEND_A5; end
+                SEND_A5: if(!uart_busy) state<=SEND_EVENT;
+                SEND_EVENT: if(!uart_busy) state<=SEND_VH;
+                SEND_VH: if(!uart_busy) state<=SEND_VL;
+                SEND_VL: if(!uart_busy) state<=SEND_CRC_H;
+                SEND_CRC_H: if(!uart_busy) state<=SEND_CRC_L;
+                SEND_CRC_L: if(!uart_busy) state<=SEND_5A;
+                SEND_5A: if(!uart_busy) state<=SEND_NL;
+                SEND_NL: if(!uart_busy) state<=IDLE;
+                default: state<=IDLE;
+            endcase
+        end
+    end
+    always_comb begin
+        uart_start=0; uart_data=0; busy=(state!=IDLE); packet_done=0;
+        case(state)
+            SEND_A5: begin uart_data=8'hA5; if(!uart_busy) uart_start=1; end
+            SEND_EVENT: begin uart_data=event_reg; if(!uart_busy) uart_start=1; end
+            SEND_VH: begin uart_data=vehicle_reg[15:8]; if(!uart_busy) uart_start=1; end
+            SEND_VL: begin uart_data=vehicle_reg[7:0]; if(!uart_busy) uart_start=1; end
+            SEND_CRC_H: begin uart_data=crc_reg[15:8]; if(!uart_busy) uart_start=1; end
+            SEND_CRC_L: begin uart_data=crc_reg[7:0]; if(!uart_busy) uart_start=1; end
+            SEND_5A: begin uart_data=8'h5A; if(!uart_busy) uart_start=1; end
+            SEND_NL: begin uart_data=8'h0A; if(!uart_busy) begin uart_start=1; packet_done=1; end end
+            default: ;
+        endcase
+    end
+endmodule
+
 
     end
 
