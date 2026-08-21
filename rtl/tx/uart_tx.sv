@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 // UART transmitter: 100 MHz clock, 115200 baud, 8-N-1.
 //
@@ -80,4 +80,47 @@ module uart_tx #(
         end
     end
 
+endmodule
+*/
+`timescale 1ns/1ps
+module uart_tx #(
+    parameter int CLK_FREQ_HZ = 100_000_000,
+    parameter int BAUD_RATE   = 115_200
+)(
+    input  logic clk,
+    input  logic rst,
+    input  logic tx_start,
+    input  logic [7:0] tx_data,
+    output logic tx,
+    output logic tx_busy,
+    output logic tx_done
+);
+    localparam int CLKS_PER_BIT = CLK_FREQ_HZ / BAUD_RATE;
+    localparam int CW = (CLKS_PER_BIT < 2) ? 1 : $clog2(CLKS_PER_BIT);
+    logic [CW-1:0] clk_count;
+    logic [3:0] bit_count;
+    logic [9:0] shift;
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            tx<=1'b1; tx_busy<=1'b0; tx_done<=1'b0; clk_count<='0; bit_count<='0; shift<=10'h3FF;
+        end else begin
+            tx_done<=1'b0;
+            if (!tx_busy) begin
+                tx<=1'b1; clk_count<='0; bit_count<='0;
+                if (tx_start) begin
+                    shift <= {1'b1,tx_data,1'b0};
+                    tx_busy<=1'b1; tx<=1'b0;
+                end
+            end else if (clk_count == CLKS_PER_BIT-1) begin
+                clk_count<='0;
+                if (bit_count==4'd9) begin
+                    tx_busy<=1'b0; tx<=1'b1; tx_done<=1'b1; bit_count<='0;
+                end else begin
+                    bit_count<=bit_count+1'b1;
+                    shift<={1'b1,shift[9:1]};
+                    tx<=shift[1];
+                end
+            end else clk_count<=clk_count+1'b1;
+        end
+    end
 endmodule
