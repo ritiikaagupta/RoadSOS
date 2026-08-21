@@ -1,276 +1,323 @@
-/*`timescale 1ns/1ps
+`timescale 1ns/1ps
 
 module rx_top_module #(
-    parameter int SAMPLES_PER_SYMBOL = 8
+    parameter int CLK_FREQ_HZ = 100_000_000,
+    parameter int BAUD_RATE   = 115_200,
+
+    // ---------------------------------------------------------
+    // LED indication duration
+    // 100 MHz × 0.5 sec = 50,000,000 cycles
+    // ---------------------------------------------------------
+    parameter int LED_HOLD_CYCLES = 50_000_000
 )(
-    input  logic               clk,
-    input  logic               rst,
+    input  logic clk,
+    input  logic rst,
+    input  logic uart_rx,
 
-    // ------------------------------------------------------------
-    // I/Q input from RF/baseband interface
-    // ------------------------------------------------------------
-    input  logic signed [15:0] i_in,
-    input  logic signed [15:0] q_in,
-    input  logic               valid_in,
+    // =========================================================
+    // ORIGINAL RX STATUS OUTPUTS
+    // =========================================================
 
-    // ------------------------------------------------------------
-    // RX outputs
-    // ------------------------------------------------------------
-    output logic [47:0]        packet_out,
-    output logic               packet_valid,
+    output logic packet_valid,
+    output logic crc_pass,
+    output logic crc_done,
+    output logic emergency_alert,
 
-    output logic               crc_pass,
-    output logic               crc_done,
+    // =========================================================
+    // PHYSICAL LED OUTPUTS
+    // =========================================================
 
-    output logic [7:0]         event_id,
-    output logic               emergency_alert,
-
-    output logic               synchronized,
-    output logic               preamble_detected
+    output logic led_packet,
+    output logic led_crc_pass,
+    output logic led_crc_fail,
+    output logic led_emergency
 );
 
-    // ============================================================
-    // 1. RX INTERFACE SIGNALS
-    // ============================================================
 
-    logic signed [15:0] i_if;
-    logic signed [15:0] q_if;
-    logic               valid_if;
+    // =========================================================
+    // UART RECEIVER
+    // =========================================================
 
-
-    // ============================================================
-    // 2. PREAMBLE DETECTOR SIGNALS
-    // ============================================================
-
-    logic preamble_detected_int;
+    logic [7:0] rx_byte;
+    logic       rx_valid;
 
 
-    // ============================================================
-    // 3. SYNCHRONIZER SIGNALS
-    // ============================================================
+    // =========================================================
+    // PACKET DECODER
+    // =========================================================
 
-    logic symbol_start;
-    logic synchronized_int;
+    logic [47:0] parsed_packet;
+    logic        parsed_valid;
 
+    logic [7:0]  parsed_event;
+    logic [15:0] parsed_vehicle;
 
-    // ============================================================
-    // 4. DECHIRPER SIGNALS
-    // ============================================================
-
-    logic signed [15:0] i_dechirped;
-    logic signed [15:0] q_dechirped;
-    logic               valid_dechirped;
+    logic        frame_error;
 
 
-    // ============================================================
-    // 5. SYMBOL DETECTOR SIGNALS
-    // ============================================================
-
-    logic [6:0] symbol;
-    logic       symbol_valid;
-
-
-    // ============================================================
-    // 6. PACKET DECODER SIGNALS
-    // ============================================================
-
-    logic [47:0] packet;
-    logic        packet_valid_int;
-
-
-    // ============================================================
-    // 7. CRC CHECKER SIGNALS
-    // ============================================================
+    // =========================================================
+    // CRC CHECKER
+    // =========================================================
 
     logic crc_pass_int;
     logic crc_done_int;
 
 
-    // ============================================================
-    // MODULE 1: RX INTERFACE
-    // ============================================================
+    // =========================================================
+    // UART RX
+    // =========================================================
 
-    rx_interface u_rx_interface (
-        .clk       (clk),
-        .rst       (rst),
-
-        .i_in      (i_in),
-        .q_in      (q_in),
-        .valid_in  (valid_in),
-
-        .i_out     (i_if),
-        .q_out     (q_if),
-        .valid_out (valid_if)
-    );
-
-
-    // ============================================================
-    // MODULE 2: PREAMBLE DETECTOR
-    // ============================================================
-
-    preamble_detector u_preamble_detector (
-        .clk              (clk),
-        .rst              (rst),
-
-        .i_in             (i_if),
-        .q_in             (q_if),
-        .valid_in         (valid_if),
-
-        .preamble_detected(preamble_detected_int)
-    );
-
-
-    // ============================================================
-    // MODULE 3: SYNCHRONIZER
-    // ============================================================
-
-    synchronizer #(
-        .SAMPLES_PER_SYMBOL(SAMPLES_PER_SYMBOL)
-    ) u_synchronizer (
-        .clk              (clk),
-        .rst              (rst),
-
-        .preamble_detected(preamble_detected_int),
-
-        .symbol_start     (symbol_start),
-        .synchronized     (synchronized_int)
-    );
-
-
-    // ============================================================
-    // MODULE 4: DECHIRPER
-    // ============================================================
-
-    dechirper u_dechirper (
-        .clk       (clk),
-        .rst       (rst),
-
-        .i_in      (i_if),
-        .q_in      (q_if),
-
-        // Only process samples after synchronization
-        .valid_in  (valid_if && synchronized_int),
-
-        .i_out     (i_dechirped),
-        .q_out     (q_dechirped),
-        .valid_out (valid_dechirped)
-    );
-
-
-    // ============================================================
-    // MODULE 5: SYMBOL DETECTOR
-    // ============================================================
-
-    symbol_detector u_symbol_detector (
-        .clk         (clk),
-        .rst         (rst),
-
-        .i_in        (i_dechirped),
-        .q_in        (q_dechirped),
-        .valid_in    (valid_dechirped),
-
-        .symbol_out  (symbol),
-        .symbol_valid(symbol_valid)
-    );
-
-
-    // ============================================================
-    // MODULE 6: PACKET DECODER
-    // ============================================================
-
-    packet_decoder u_packet_decoder (
-        .clk         (clk),
-        .rst         (rst),
-
-        .symbol_in   (symbol),
-        .symbol_valid(symbol_valid),
-
-        .packet_out  (packet),
-        .packet_valid(packet_valid_int)
-    );
-
-
-    // ============================================================
-    // MODULE 7: CRC CHECKER
-    // ============================================================
-
-    crc_checker u_crc_checker (
+    uart_rx #(
+        .CLK_FREQ_HZ (CLK_FREQ_HZ),
+        .BAUD_RATE   (BAUD_RATE)
+    ) u_uart (
         .clk        (clk),
         .rst        (rst),
-
-        .packet_in  (packet),
-        .packet_valid(packet_valid_int),
-
-        .crc_pass   (crc_pass_int),
-        .crc_done   (crc_done_int)
+        .rxd        (uart_rx),
+        .data_out   (rx_byte),
+        .data_valid (rx_valid)
     );
 
 
-    // ============================================================
-    // OUTPUT ASSIGNMENTS
-    // ============================================================
+    // =========================================================
+    // PACKET DECODER
+    // =========================================================
 
-    assign packet_out        = packet;
-    assign packet_valid      = packet_valid_int;
+    packet_decoder u_parser (
+        .clk          (clk),
+        .rst          (rst),
 
-    assign crc_pass          = crc_pass_int;
-    assign crc_done          = crc_done_int;
+        .byte_in      (rx_byte),
+        .byte_valid   (rx_valid),
 
-    assign event_id          = packet[39:32];
+        .packet_out   (parsed_packet),
+        .packet_valid (parsed_valid),
 
-    assign synchronized      = synchronized_int;
-    assign preamble_detected = preamble_detected_int;
+        .event_id     (parsed_event),
+        .vehicle_id   (parsed_vehicle),
+
+        .frame_error  (frame_error)
+    );
 
 
-    // ============================================================
-    // EMERGENCY ALERT
-    // ============================================================
+    // =========================================================
+    // CRC CHECKER
+    // =========================================================
+
+    crc_checker u_crc (
+        .clk          (clk),
+        .rst          (rst),
+
+        .packet_in    (parsed_packet),
+        .packet_valid (parsed_valid),
+
+        .crc_pass     (crc_pass_int),
+        .crc_done     (crc_done_int)
+    );
+
+
+    // =========================================================
+    // ORIGINAL FUNCTIONAL OUTPUTS
     //
-    // For the current prototype, a valid packet with a passing
-    // CRC is treated as a valid emergency communication packet.
+    // These remain the actual internal status signals.
+    // =========================================================
+
+    assign packet_valid   = parsed_valid;
+    assign crc_pass       = crc_pass_int;
+    assign crc_done       = crc_done_int;
+
+    assign emergency_alert =
+        crc_done_int && crc_pass_int;
+
+
+    // =========================================================
+    // LED COUNTERS
+    // =========================================================
+
+    logic [31:0] packet_led_counter;
+    logic [31:0] crc_pass_led_counter;
+    logic [31:0] crc_fail_led_counter;
+    logic [31:0] emergency_led_counter;
+
+
+    // =========================================================
+    // RX PHYSICAL LED STATUS LOGIC
     //
-    // This can later be changed to:
-    //     packet[39:32] == EMERGENCY_EVENT_ID
+    // led_packet:
+    //     Complete packet detected.
     //
-    // once the team freezes the event-ID specification.
-    // ============================================================
+    // led_crc_pass:
+    //     CRC verification successful.
+    //
+    // led_crc_fail:
+    //     CRC verification failed.
+    //
+    // led_emergency:
+    //     Valid emergency packet received.
+    //
+    // LEDs remain visible for LED_HOLD_CYCLES.
+    // =========================================================
 
-    assign emergency_alert = packet_valid_int && crc_pass_int;
+    always_ff @(posedge clk) begin
 
-endmodule
-*/
-`timescale 1ns/1ps
-module rx_top_module #(
-    parameter int CLK_FREQ_HZ=100_000_000,
-    parameter int BAUD_RATE=115_200
-)(
-    input logic clk, input logic rst, input logic uart_rx,
-    output logic [47:0] packet_out, output logic packet_valid,
-    output logic crc_pass, output logic crc_done,
-    output logic [7:0] event_id, output logic [15:0] vehicle_id,
-    output logic emergency_alert, output logic frame_error, output logic uart_activity
-);
-    logic [7:0] rx_byte, parsed_event;
-    logic rx_valid, parsed_valid;
-    logic [15:0] parsed_vehicle;
-    logic [47:0] parsed_packet;
+        // =====================================================
+        // RESET
+        // =====================================================
 
-    uart_rx #(.CLK_FREQ_HZ(CLK_FREQ_HZ),.BAUD_RATE(BAUD_RATE)) u_uart(
-        .clk(clk),.rst(rst),.rxd(uart_rx),.data_out(rx_byte),.data_valid(rx_valid)
-    );
-    packet_decoder u_parser(
-        .clk(clk),.rst(rst),.byte_in(rx_byte),.byte_valid(rx_valid),
-        .packet_out(parsed_packet),.packet_valid(parsed_valid),.event_id(parsed_event),
-        .vehicle_id(parsed_vehicle),.frame_error(frame_error)
-    );
-    crc_checker u_crc(
-        .clk(clk),.rst(rst),.packet_in(parsed_packet),.packet_valid(parsed_valid),
-        .crc_pass(crc_pass),.crc_done(crc_done)
-    );
-    assign packet_out=parsed_packet;
-    assign packet_valid=parsed_valid;
-    assign event_id=parsed_event;
-    assign vehicle_id=parsed_vehicle;
-    assign emergency_alert=crc_done && crc_pass;
-    assign uart_activity=rx_valid;
+        if (rst) begin
+
+            packet_led_counter      <= 32'd0;
+            crc_pass_led_counter    <= 32'd0;
+            crc_fail_led_counter    <= 32'd0;
+            emergency_led_counter   <= 32'd0;
+
+            led_packet              <= 1'b0;
+            led_crc_pass            <= 1'b0;
+            led_crc_fail            <= 1'b0;
+            led_emergency           <= 1'b0;
+
+        end
+
+        else begin
+
+            // =================================================
+            // PACKET LED TIMER
+            // =================================================
+
+            if (packet_led_counter != 0) begin
+
+                packet_led_counter <=
+                    packet_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_packet <= 1'b0;
+
+            end
+
+
+            // =================================================
+            // CRC PASS LED TIMER
+            // =================================================
+
+            if (crc_pass_led_counter != 0) begin
+
+                crc_pass_led_counter <=
+                    crc_pass_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_crc_pass <= 1'b0;
+
+            end
+
+
+            // =================================================
+            // CRC FAIL LED TIMER
+            // =================================================
+
+            if (crc_fail_led_counter != 0) begin
+
+                crc_fail_led_counter <=
+                    crc_fail_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_crc_fail <= 1'b0;
+
+            end
+
+
+            // =================================================
+            // EMERGENCY LED TIMER
+            // =================================================
+
+            if (emergency_led_counter != 0) begin
+
+                emergency_led_counter <=
+                    emergency_led_counter - 1'b1;
+
+            end
+
+            else begin
+
+                led_emergency <= 1'b0;
+
+            end
+
+
+            // =================================================
+            // COMPLETE PACKET RECEIVED
+            // =================================================
+
+            if (parsed_valid) begin
+
+                led_packet <= 1'b1;
+
+                packet_led_counter <=
+                    LED_HOLD_CYCLES;
+
+            end
+
+
+            // =================================================
+            // CRC VERIFICATION COMPLETE
+            // =================================================
+
+            if (crc_done_int) begin
+
+                if (crc_pass_int) begin
+
+                    // -------------------------------
+                    // CRC PASSED
+                    // -------------------------------
+
+                    led_crc_pass <= 1'b1;
+
+                    crc_pass_led_counter <=
+                        LED_HOLD_CYCLES;
+
+                end
+
+                else begin
+
+                    // -------------------------------
+                    // CRC FAILED
+                    // -------------------------------
+
+                    led_crc_fail <= 1'b1;
+
+                    crc_fail_led_counter <=
+                        LED_HOLD_CYCLES;
+
+                end
+
+            end
+
+
+            // =================================================
+            // VALID EMERGENCY PACKET
+            //
+            // CRC passed + packet successfully received
+            // =================================================
+
+            if (crc_done_int && crc_pass_int) begin
+
+                led_emergency <= 1'b1;
+
+                emergency_led_counter <=
+                    LED_HOLD_CYCLES;
+
+            end
+
+        end
+
+    end
+
 endmodule
