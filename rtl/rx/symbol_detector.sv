@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+/*`timescale 1ns/1ps
 
 // SF=7 means the symbol is 7 bits wide (0..127).
 //
@@ -54,7 +54,7 @@ module symbol_detector (
     end
 
 endmodule
-*?
+*/
 `timescale 1ns/1ps
 module symbol_detector(input logic clk,input logic rst,input logic signed [15:0] i_in,input logic signed [15:0] q_in,input logic valid_in,output logic [6:0] symbol_out,output logic symbol_valid);
     always_ff @(posedge clk) begin if(rst) begin symbol_out<=0;symbol_valid<=0; end else begin symbol_valid<=0; end end
