@@ -19,7 +19,7 @@ create_clock -period 10.000 -name sys_clk [get_ports clk]
 # RESET
 # ============================================================
 
-set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports rst]
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports rst]
 
 
 # ============================================================
