@@ -115,8 +115,50 @@ u_uart(
 assign tx_done = packet_done;
 
 
-assign debug_event_id =
-packet_out[39:32];
+// =========================================================
+// 7-SEGMENT DISPLAY DECODER
+// debug_event_id[0] -> CA
+// debug_event_id[1] -> CB
+// debug_event_id[2] -> CC
+// debug_event_id[3] -> CD
+// debug_event_id[4] -> CE
+// debug_event_id[5] -> CF
+// debug_event_id[6] -> CG
+// debug_event_id[7] -> DP
+//
+// Active-low seven-segment display
+// =========================================================
+
+always_comb begin
+
+    // Decimal point OFF
+    debug_event_id[7] = 1'b1;
+
+    case (packet_out[39:32])
+
+        8'h00: debug_event_id[6:0] = 7'b1000000; // 0
+        8'h01: debug_event_id[6:0] = 7'b1111001; // 1
+        8'h02: debug_event_id[6:0] = 7'b0100100; // 2
+        8'h03: debug_event_id[6:0] = 7'b0110000; // 3
+        8'h04: debug_event_id[6:0] = 7'b0011001; // 4
+        8'h05: debug_event_id[6:0] = 7'b0010010; // 5
+        8'h06: debug_event_id[6:0] = 7'b0000010; // 6
+        8'h07: debug_event_id[6:0] = 7'b1111000; // 7
+        8'h08: debug_event_id[6:0] = 7'b0000000; // 8
+        8'h09: debug_event_id[6:0] = 7'b0010000; // 9
+
+        8'h0A: debug_event_id[6:0] = 7'b0001000; // A
+        8'h0B: debug_event_id[6:0] = 7'b0000011; // b
+        8'h0C: debug_event_id[6:0] = 7'b1000110; // C
+        8'h0D: debug_event_id[6:0] = 7'b0100001; // d
+        8'h0E: debug_event_id[6:0] = 7'b0000110; // E
+        8'h0F: debug_event_id[6:0] = 7'b0001110; // F
+
+        default:
+            debug_event_id[6:0] = 7'b1111111; // blank
+
+    endcase
+end
 
 
 assign debug_vehicle_id =
