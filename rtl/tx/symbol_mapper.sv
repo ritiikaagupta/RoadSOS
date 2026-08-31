@@ -74,3 +74,93 @@ module symbol_mapper #(parameter int FRAME_WIDTH=64,parameter int SF=7)(input lo
         end
     end
 endmodule
+/*`timescale 1ns/1ps
+
+module symbol_mapper #(
+    parameter int FRAME_WIDTH = 64,
+    parameter int SF = 7
+)(
+    input  logic clk,
+    input  logic rst,
+
+    input  logic frame_valid,
+    input  logic [FRAME_WIDTH-1:0] frame,
+
+    output logic [SF-1:0] symbol,
+    output logic symbol_valid,
+    output logic mapping_done
+);
+
+    // Number of SF-bit symbols required
+    localparam int N = (FRAME_WIDTH + SF - 1) / SF;
+
+    // Total padded width
+    localparam int P = N * SF;
+
+    // Counter width
+    localparam int CW = (N <= 2) ? 1 : $clog2(N);
+
+    // Padded frame buffer
+    logic [P-1:0] buffer;
+
+    // Symbol counter
+    logic [CW-1:0] count;
+
+    // Mapping active flag
+    logic active;
+
+    always_ff @(posedge clk) begin
+
+        if (rst) begin
+            buffer       <= '0;
+            count        <= '0;
+            active       <= 1'b0;
+
+            symbol       <= '0;
+            symbol_valid <= 1'b0;
+            mapping_done <= 1'b0;
+        end
+
+        else begin
+
+            // Default outputs
+            symbol_valid <= 1'b0;
+            mapping_done <= 1'b0;
+
+            // Start mapping when a new frame arrives
+            if (frame_valid && !active) begin
+
+                // FRAME_WIDTH = 64
+                // SF = 7
+                // N = 10
+                // P = 70
+                //
+                // 6 zero-padding bits + 64-bit frame
+                buffer <= {{(P-FRAME_WIDTH){1'b0}}, frame};
+
+                count  <= '0;
+                active <= 1'b1;
+            end
+
+            // Send one symbol per clock
+            else if (active) begin
+
+                symbol <= buffer[P-1-count*SF -: SF];
+
+                symbol_valid <= 1'b1;
+
+                // Last symbol
+                if (count == N-1) begin
+                    active       <= 1'b0;
+                    mapping_done <= 1'b1;
+                end
+
+                else begin
+                    count <= count + 1'b1;
+                end
+            end
+        end
+    end
+
+endmodule
+*/
